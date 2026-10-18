@@ -10,29 +10,9 @@ It is neither a UEFI application nor a patched NVIDIA driver.
 The observed result is GPU1, an RTX 3090 at `0000:21:00.0`, on the main
 CachyOS `7.2.8-1-cachyos` kernel with NVIDIA `615.71.09`. GPU0 at
 `0000:01:00.0` was an unmodified control. Other RTX 3090 boards and
-environments have not been verified. An experimental, explicitly selected RTX
-3090 Ti build has also completed a cold-boot hardware trial; see
-[the validation report](docs/rtx3090ti-validation.md) for its limits. Each build
-accepts only its selected PCI device ID; other GA102 IDs remain rejected.
-
-## Experimental device build profile
-
-The default remains RTX 3090 (`10de:2204`). To build only for RTX 3090 Ti:
-
-```sh
-make -C kernel/gpu_unlock GPU_UNLOCK_DEVICE_ID=0x2203
-```
-
-The selected ID is used for discovery and PCI identity checks; other models
-are skipped and unsupported IDs are a build error. Firmware and the unlock
-sequence are unchanged.
-
-This builds a module only. Include it and the pinned firmware in a trial
-initramfs that loads it before udev/NVIDIA, retain a recovery boot, and use the
-existing `gpu_unlock.targets=` opt-in with a cold power-on. The Ti trial used a
-custom pre-udev hook; package boot integration is unvalidated. Subsequent
-package/DKMS rebuilds default to 3090 unless the Ti setting is supplied again.
-See the [single-board results](docs/rtx3090ti-validation.md).
+environments have not been verified. This fork also recognizes RTX 3090 Ti (`10de:2203`) with the same unlock
+sequence and build commands. See the [validation results](docs/rtx3090ti-validation.md).
+Other PCI device IDs are rejected.
 
 ## Local build
 
@@ -80,15 +60,15 @@ There is no `softdep nvidia pre:` rule: kmod honours only the first
 The module does nothing unless the kernel command line opts in:
 
 ```
-gpu_unlock.targets=all                          # every unbound card in the build profile
+gpu_unlock.targets=all                          # every unbound RTX 3090 or RTX 3090 Ti
 gpu_unlock.targets=0000:21:00.0                 # only these cards
 gpu_unlock.targets=0000:21:00.0,0000:22:00.0    # comma-separated
 ```
 
 Addresses are full PCI names as `lspci -D` prints them (hex digits in either
 case), independent of GPU numbering and display role. An entry that is not
-a card in the selected build profile, including `all` mixed with addresses, is
-logged and ignored.
+an RTX 3090 or RTX 3090 Ti, including `all` mixed with addresses, is logged
+and ignored.
 The cards are unlocked concurrently, about a second in all however many
 there are, and each on its own: a card that is already bound, powered down
 or bus mastering is skipped. Then `nvidia` loads and binds every card as

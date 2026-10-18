@@ -62,7 +62,8 @@ struct pci_dev *pci_get_device(unsigned int vendor, unsigned int device, struct 
 
 	pci_dev_put(from);
 	for (; i < device_count; i++)
-		if (devices[i].vendor == vendor && devices[i].device == device)
+		if (devices[i].vendor == vendor &&
+		    (device == PCI_ANY_ID || devices[i].device == device))
 			return pci_dev_get(&devices[i]);
 	return NULL;
 }
@@ -218,18 +219,16 @@ static bool logged(const char *text)
 
 int main(void)
 {
-	/* Every unbound device in the build profile at once; other models and bound cards left alone. */
+	/* Both supported models at once; other models and bound cards left alone. */
 	reset("all");
-	add("0000:01:00.0", GPU_UNLOCK_DEVICE_ID, false);
-	add("0000:21:00.0", GPU_UNLOCK_DEVICE_ID, false);
+	add("0000:01:00.0", RTX_3090, false);
+	add("0000:21:00.0", RTX_3090_TI, false);
 	add("0000:31:00.0", 0x2208, false);
-	add("0000:41:00.0", GPU_UNLOCK_DEVICE_ID, true);
-	add("0000:61:00.0", GPU_UNLOCK_DEVICE_ID, false);
-	/* A profile must not touch the other tested model, even with targets=all. */
-	add("0000:71:00.0", GPU_UNLOCK_DEVICE_ID == 0x2204 ? 0x2203 : 0x2204, false);
+	add("0000:41:00.0", RTX_3090, true);
+	add("0000:61:00.0", RTX_3090, false);
 	fake.expected_concurrent = 3;
 	run();
-	assert(fake.max_in_flight == 3 && fake.started == 3 && !fake.unlocks[5]);
+	assert(fake.max_in_flight == 3 && fake.started == 3);
 	assert(fake.unlocks[0] && fake.unlocks[1] && !fake.unlocks[2] && !fake.unlocks[3] && fake.unlocks[4]);
 	assert(fake.loads == 1 && fake.load_dev == &devices[0] && fake.releases == 1);
 	assert(logged("0000:01:00.0: gpu_unlock: unlocked") && logged("0000:61:00.0: gpu_unlock: unlocked"));
@@ -238,20 +237,20 @@ int main(void)
 
 	/* A list picks cards in any case; the rest are not touched. */
 	reset("0000:61:00.0,0000:0A:00.0");
-	add("0000:01:00.0", GPU_UNLOCK_DEVICE_ID, false);
-	add("0000:0a:00.0", GPU_UNLOCK_DEVICE_ID, false);
-	add("0000:61:00.0", GPU_UNLOCK_DEVICE_ID, false);
+	add("0000:01:00.0", RTX_3090, false);
+	add("0000:0a:00.0", RTX_3090_TI, false);
+	add("0000:61:00.0", RTX_3090, false);
 	fake.expected_concurrent = 2;
 	run();
 	assert(fake.max_in_flight == 2 && !fake.unlocks[0] && fake.unlocks[1] && fake.unlocks[2]);
 	assert(fake.loads == 1 && fake.load_dev == &devices[1] && fake.releases == 1);
-	assert(!logged("no " GPU_UNLOCK_MODEL_NAME));
+	assert(!logged("no RTX 3090/3090 Ti"));
 	puts("list: only listed cards, concurrently PASS");
 
 	/* One card failing leaves the others unlocked. */
 	reset("all");
-	add("0000:01:00.0", GPU_UNLOCK_DEVICE_ID, false);
-	add("0000:21:00.0", GPU_UNLOCK_DEVICE_ID, false);
+	add("0000:01:00.0", RTX_3090, false);
+	add("0000:21:00.0", RTX_3090_TI, false);
 	fake.fail_unlock[0] = -EIO;
 	fake.expected_concurrent = 2;
 	run();
@@ -262,8 +261,8 @@ int main(void)
 
 	/* Without the shared firmware no card is attempted. */
 	reset("all");
-	add("0000:01:00.0", GPU_UNLOCK_DEVICE_ID, false);
-	add("0000:21:00.0", GPU_UNLOCK_DEVICE_ID, false);
+	add("0000:01:00.0", RTX_3090, false);
+	add("0000:21:00.0", RTX_3090_TI, false);
 	fake.fail_load = -ENOENT;
 	run();
 	assert(fake.loads == 1 && !fake.started && !fake.releases);
@@ -272,16 +271,17 @@ int main(void)
 
 	/* Unmatched entries are reported; nothing to load for no cards. */
 	reset("0000:99:00.0");
-	add("0000:01:00.0", GPU_UNLOCK_DEVICE_ID, false);
+	add("0000:01:00.0", RTX_3090, false);
 	run();
 	assert(!fake.loads && !fake.started && fake.releases == 1);
-	assert(logged("gpu_unlock: no " GPU_UNLOCK_MODEL_NAME " at \"0000:99:00.0\""));
+	assert(logged("gpu_unlock: no RTX 3090/3090 Ti at \"0000:99:00.0\""));
 	puts("unmatched target: reported, nothing loaded PASS");
 
 	/* No opt-in on the command line: the module does nothing. */
 	for (int empty = 0; empty < 2; empty++) {
 		reset(empty ? "" : NULL);
-		add("0000:01:00.0", GPU_UNLOCK_DEVICE_ID, false);
+		add("0000:01:00.0", RTX_3090, false);
+		add("0000:21:00.0", RTX_3090_TI, false);
 		run();
 		assert(!fake.loads && !fake.started && !fake.releases && !fake.log[0]);
 	}

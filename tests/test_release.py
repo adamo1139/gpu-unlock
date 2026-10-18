@@ -34,35 +34,24 @@ SHIMS = {
 class ComponentTests(unittest.TestCase):
     def test_components(self):
         with tempfile.TemporaryDirectory() as directory:
-            # No define exercises the existing default build, not just an
-            # explicit equivalent. Ti is always an opt-in build profile.
-            for profile in (None, "0x2203"):
-                for name, sources in CASES.items():
-                    with self.subTest(profile=profile or "default", component=name):
-                        output = Path(directory) / f"{name}-{profile or 'default'}"
-                        shim = SHIMS.get(name, [])
-                        defines = [f"-DGPU_UNLOCK_DEVICE_ID={profile}"] if profile else []
-                        command = [os.environ.get("CC", "cc"), "-std=c11", "-Wall",
-                                   "-Wextra", "-Werror", "-Wno-unused-parameter",
-                                   *defines, "-I", str(KERNEL), *shim,
-                                   *(str(KERNEL / source) for source in sources),
-                                   str(ROOT / "tests" / f"test_{name}.c"),
-                                   "-o", str(output)]
-                        subprocess.run(command, check=True)
+            for name, sources in CASES.items():
+                with self.subTest(name=name):
+                    output = Path(directory) / name
+                    shim = SHIMS.get(name, [])
+                    command = [os.environ.get("CC", "cc"), "-std=c11", "-Wall",
+                               "-Wextra", "-Werror", "-Wno-unused-parameter",
+                               "-I", str(KERNEL), *shim,
+                               *(str(KERNEL / source) for source in sources),
+                               str(ROOT / "tests" / f"test_{name}.c"),
+                               "-o", str(output)]
+                    subprocess.run(command, check=True)
+                    devices = ("0x2204", "0x2203") if name == "unlock_adapter" else (None,)
+                    for device in devices:
                         args = [str(output)]
+                        if device:
+                            args += [f"--device={device}"]
                         if name == "unlock_adapter" and ASSETS:
                             args += ["-", str(ASSETS)]
                         result = subprocess.run(args, capture_output=True, text=True)
                         self.assertEqual(result.returncode, 0,
-                                         (result.stdout + result.stderr)[-4000:])
-
-    def test_unreviewed_device_profile_is_rejected(self):
-        with tempfile.TemporaryDirectory() as directory:
-            result = subprocess.run(
-                [os.environ.get("CC", "cc"), "-std=c11", "-x", "c", "-c",
-                 "-DGPU_UNLOCK_DEVICE_ID=0x2208", "-I", str(KERNEL),
-                 "-o", str(Path(directory) / "unsupported.o"), "-"],
-                input='#include "device_profile.h"\n',
-                capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Unsupported GPU_UNLOCK_DEVICE_ID", result.stderr)
+                                         f"{device or name}: " + (result.stdout + result.stderr)[-4000:])
