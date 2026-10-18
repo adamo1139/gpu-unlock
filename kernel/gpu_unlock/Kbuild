@@ -2,3 +2,8 @@
 obj-m += gpu_unlock.o
 gpu_unlock-y := main.o gfw_eval.o prep_610.o layout_610.o \
 	vbios_610.o unlock_610.o
+
+# Optional single-device profile; device_profile.h retains the source default.
+ifneq ($(GPU_UNLOCK_DEVICE_ID),)
+ccflags-y += -DGPU_UNLOCK_DEVICE_ID=$(GPU_UNLOCK_DEVICE_ID)
+endif

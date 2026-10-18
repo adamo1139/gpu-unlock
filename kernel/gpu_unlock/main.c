@@ -6,12 +6,11 @@
 #include <linux/string.h>
 
 #include "unlock_610.h"
+#include "device_profile.h"
 
 static char *targets;
 module_param(targets, charp, 0444);
-MODULE_PARM_DESC(targets, "\"all\" or comma-separated PCI addresses of RTX 3090 cards to unlock");
-
-#define RTX_3090 0x2204
+MODULE_PARM_DESC(targets, "\"all\" or comma-separated PCI addresses of " GPU_UNLOCK_MODEL_NAME " cards to unlock");
 
 static ASYNC_DOMAIN_EXCLUSIVE(unlock_domain);
 static struct gpu_unlock_610_shared shared;
@@ -53,14 +52,14 @@ static void report_unmatched(void)
 	for (entry = targets; *entry; entry = *end ? end + 1 : end) {
 		end = strchrnul(entry, ',');
 		pdev = NULL;
-		while ((pdev = pci_get_device(PCI_VENDOR_ID_NVIDIA, RTX_3090, pdev)))
+		while ((pdev = pci_get_device(PCI_VENDOR_ID_NVIDIA, GPU_UNLOCK_DEVICE_ID, pdev)))
 			if (strlen(pci_name(pdev)) == end - entry &&
 			    !strncasecmp(pci_name(pdev), entry, end - entry))
 				break;
 		if (pdev)
 			pci_dev_put(pdev);
 		else
-			pr_err("gpu_unlock: no RTX 3090 at \"%.*s\"\n",
+			pr_err("gpu_unlock: no " GPU_UNLOCK_MODEL_NAME " at \"%.*s\"\n",
 			       (int)(end - entry), entry);
 	}
 }
@@ -77,7 +76,7 @@ static int __init gpu_unlock_init(void)
 	all = !strcmp(targets, "all");
 	if (!all)
 		report_unmatched();
-	while ((pdev = pci_get_device(PCI_VENDOR_ID_NVIDIA, RTX_3090, pdev))) {
+	while ((pdev = pci_get_device(PCI_VENDOR_ID_NVIDIA, GPU_UNLOCK_DEVICE_ID, pdev))) {
 		if (!all && !listed(pci_name(pdev)))
 			continue;
 		if (!shared.gsp) {
@@ -103,5 +102,5 @@ static void __exit gpu_unlock_exit(void)
 module_init(gpu_unlock_init);
 module_exit(gpu_unlock_exit);
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("RTX 3090 pre-driver BF16 unlock");
+MODULE_DESCRIPTION(GPU_UNLOCK_MODEL_NAME " pre-driver BF16 unlock");
 MODULE_VERSION("1.0.0");

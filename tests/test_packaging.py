@@ -31,6 +31,7 @@ class PackageTests(unittest.TestCase):
                      if path.is_file()}
             for expected in (f"usr/src/gpu-unlock-{version}/dkms.conf",
                              f"usr/src/gpu-unlock-{version}/main.c",
+                             f"usr/src/gpu-unlock-{version}/device_profile.h",
                              "etc/mkinitcpio.conf.d/zz-gpu-unlock.conf",
                              "usr/share/initramfs-tools/modules.d/gpu-unlock.conf",
                              "usr/lib/dracut/dracut.conf.d/gpu-unlock.conf",
