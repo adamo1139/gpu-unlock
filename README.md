@@ -18,17 +18,27 @@ Other PCI device IDs are rejected.
 
 Every build downloads the pinned NVIDIA/CachyOS inputs over HTTPS, checks
 their SHA-256, and generates firmware only in the build directory and the
-binary package. All three formats install through the same `make install-*`
-targets. Packages are built from the committed `HEAD`.
+binary package. Packages are built from the committed `HEAD`.
 
-Build, install build dependencies, and install the packages in one step
-(asks for your sudo password):
+On Ubuntu 22.04 (kernel 6.8, Python 3.10), build and install step by step so
+you can review what apt changes before confirming:
 
 ```sh
-make install-arch   # makepkg -sif
-make install-deb    # apt-get build-dep, dpkg-buildpackage, apt-get install
-make install-rpm    # dnf builddep, rpmbuild, dnf install
+sudo apt-get build-dep .    # debhelper etc.; check it does not upgrade dkms or nvidia-* packages
+make deb                    # downloads the pinned inputs, builds build/deb/*.deb
+sudo apt-get install ./build/deb/gpu-unlock-dkms_1.0.0_all.deb \
+                     ./build/deb/gpu-unlock-firmware_1.0.0_all.deb
+dkms status | grep gpu-unlock               # installed for the running kernel
+sudo update-initramfs -u                    # the package does not rebuild the initramfs
+lsinitramfs /boot/initrd.img-$(uname -r) | grep -i gpu.unlock
 ```
+
+The last command must list `gpu_unlock.ko` and the five firmware files under
+`usr/lib/firmware/gpu-unlock/610.43.03/`. apt's note that the download is
+"performed unsandboxed as root" is harmless.
+
+`make install-arch` and `make install-rpm` do the same in one step for Arch
+and Fedora; `make install-deb` also exists but passes `-y` to apt.
 
 `make arch`, `make deb` and `make rpm` only build. Debian and RPM packages go
 to `build/deb` and `build/rpm`. The NVIDIA inputs are cached in
