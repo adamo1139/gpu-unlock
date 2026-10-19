@@ -185,6 +185,7 @@ int aperture_remove_conflicting_pci_devices(struct pci_dev *p,const char *n) {
     if(full_active)assert(fake.starts==1);
     fake.apertures++;return 0;
 }
+int pci_set_power_state(struct pci_dev *p,int s) {p->current_state=s;return 0;}
 int pci_enable_device_mem(struct pci_dev *p) {fake.cmd|=2;return 0;}
 void pci_disable_device(struct pci_dev *p) {}
 resource_size_t pci_resource_len(struct pci_dev *p,int r) {return sizeof(regs);}

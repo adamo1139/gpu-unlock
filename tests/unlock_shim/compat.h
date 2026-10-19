@@ -82,6 +82,7 @@ int pci_select_bars(struct pci_dev *,int);
 int pci_request_region(struct pci_dev *,int,const char *);
 void pci_release_region(struct pci_dev *,int);
 int aperture_remove_conflicting_pci_devices(struct pci_dev *,const char *);
+int pci_set_power_state(struct pci_dev *,int);
 int pci_enable_device_mem(struct pci_dev *);
 void pci_disable_device(struct pci_dev *);
 resource_size_t pci_resource_len(struct pci_dev *,int);

@@ -790,6 +790,13 @@ static int unlock_transaction_claim(struct unlock_transaction_work *work)
 	unsigned int i;
 	int ret;
 
+	/* Kernels <= 6.15 leave a freshly enumerated device at PCI_UNKNOWN until a
+	 * driver powers it up; 6.16+ resolves it in pci_pm_init(). A cold card is
+	 * already in D0, so this only syncs the bookkeeping. The PMCSR check below
+	 * still verifies the hardware state.
+	 */
+	if (work->pdev->current_state != PCI_D0)
+		pci_set_power_state(work->pdev, PCI_D0);
 	dev_info(&work->pdev->dev, "claim: power=%d pm_cap=%#x flags=%#x\n",
 		work->pdev->current_state, work->pdev->pm_cap, work->pdev->dev_flags);
 	if (work->pdev->current_state != PCI_D0 ||
